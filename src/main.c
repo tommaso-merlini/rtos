@@ -1,6 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <util/delay.h>
 #include "../inc/uart.h"
 #include "../inc/rtos.h"
@@ -61,9 +62,20 @@ void task2(void) {
 int main(void) {
     DDRB |= (1 << LED); // led init
 
+
     uart_init(57600);
     _delay_ms(4000);
     uart_print("System Booting...\n");
+
+    int* c = malloc(sizeof(int));
+    if(c != NULL) {
+        *c = 100;
+        print_num(*c);
+        uart_print("\n");
+        free(c);
+    } else {
+        uart_print("ERROR!\n");
+    }
 
     rtos_init();
     
