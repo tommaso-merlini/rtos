@@ -1,0 +1,9 @@
+--target=avr
+-mmcu=atmega328p
+-DF_CPU=16000000UL
+-Iinc
+-isystem/usr/lib/avr/include
+-isystem/usr/lib/gcc/avr/5.4.0/include
+-std=gnu99
+-Wall
+-Wextra

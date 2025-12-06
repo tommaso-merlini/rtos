@@ -1,0 +1,80 @@
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <stdint.h>
+#include <util/delay.h>
+#include "../inc/uart.h"
+#include "../inc/rtos.h"
+
+#define LED PB5 
+
+#ifndef F_CPU
+#define F_CPU 16000000UL
+#endif
+
+uint8_t count = 0;
+
+// Helper to print number
+void print_num(uint8_t num) {
+    if (num == 0) {
+        uart_putc('0');
+        return;
+    }
+    char buffer[4];
+    int i = 0;
+    while (num > 0) {
+        buffer[i++] = (num % 10) + '0';
+        num /= 10;
+    }
+    while (i > 0) {
+        uart_putc(buffer[--i]);
+    }
+}
+
+void task1(void) {
+    while(1) {
+        // PORTB ^= (1 << LED);
+        rtos_enter_critical();
+        count++;
+        rtos_exit_critical();
+        uart_print("Task1: ");
+        print_num(count);
+        uart_print("\n");
+        rtos_sleep(500);
+    }
+}
+
+void task2(void) {
+    // Initial delay to phase with task1 so we don't underflow (0 - 2)
+    rtos_sleep(1000); 
+    while(1) {
+        // uart_print("Task 2 is running...\n");
+        rtos_enter_critical();
+        count -= 2;
+        rtos_exit_critical();
+        uart_print("Task2: ");
+        print_num(count);
+        uart_print("\n");
+        rtos_sleep(1000);
+    }
+}
+
+int main(void) {
+    DDRB |= (1 << LED); // led init
+
+    uart_init(57600);
+    _delay_ms(4000);
+    uart_print("System Booting...\n");
+
+    rtos_init();
+    
+    rtos_create_task(task1, 1);
+    rtos_create_task(task2, 1);
+    
+    uart_print("Starting RTOS...\n");
+
+    rtos_start();
+
+    //WARNING: unreachable
+    while(1);
+    return 0;
+}
