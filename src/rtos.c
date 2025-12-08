@@ -5,6 +5,92 @@
 
 //TODO: create a unified sleep function where if the sleep is >= 1ms than use the scheduler to sleep, otherwise use _delay_us
 
+#define SAVE_CONTEXT() \
+    asm volatile ( \
+        "push r0 \n\t" \
+        "in r0, __SREG__ \n\t" \
+        "push r0 \n\t" \
+        "push r1 \n\t" \
+        "clr r1 \n\t" \
+        "push r2 \n\t" \
+        "push r3 \n\t" \
+        "push r4 \n\t" \
+        "push r5 \n\t" \
+        "push r6 \n\t" \
+        "push r7 \n\t" \
+        "push r8 \n\t" \
+        "push r9 \n\t" \
+        "push r10 \n\t" \
+        "push r11 \n\t" \
+        "push r12 \n\t" \
+        "push r13 \n\t" \
+        "push r14 \n\t" \
+        "push r15 \n\t" \
+        "push r16 \n\t" \
+        "push r17 \n\t" \
+        "push r18 \n\t" \
+        "push r19 \n\t" \
+        "push r20 \n\t" \
+        "push r21 \n\t" \
+        "push r22 \n\t" \
+        "push r23 \n\t" \
+        "push r24 \n\t" \
+        "push r25 \n\t" \
+        "push r26 \n\t" \
+        "push r27 \n\t" \
+        "push r28 \n\t" \
+        "push r29 \n\t" \
+        "push r30 \n\t" \
+        "push r31 \n\t" \
+        "in r26, __SP_L__ \n\t" \
+        "in r27, __SP_H__ \n\t" \
+        "sts current_sp, r26 \n\t" \
+        "sts current_sp+1, r27 \n\t" \
+    );
+
+#define RESTORE_CONTEXT() \
+    asm volatile ( \
+        "lds r26, current_sp \n\t" \
+        "lds r27, current_sp+1 \n\t" \
+        "out __SP_L__, r26 \n\t" \
+        "out __SP_H__, r27 \n\t" \
+        "pop r31 \n\t" \
+        "pop r30 \n\t" \
+        "pop r29 \n\t" \
+        "pop r28 \n\t" \
+        "pop r27 \n\t" \
+        "pop r26 \n\t" \
+        "pop r25 \n\t" \
+        "pop r24 \n\t" \
+        "pop r23 \n\t" \
+        "pop r22 \n\t" \
+        "pop r21 \n\t" \
+        "pop r20 \n\t" \
+        "pop r19 \n\t" \
+        "pop r18 \n\t" \
+        "pop r17 \n\t" \
+        "pop r16 \n\t" \
+        "pop r15 \n\t" \
+        "pop r14 \n\t" \
+        "pop r13 \n\t" \
+        "pop r12 \n\t" \
+        "pop r11 \n\t" \
+        "pop r10 \n\t" \
+        "pop r9 \n\t" \
+        "pop r8 \n\t" \
+        "pop r7 \n\t" \
+        "pop r6 \n\t" \
+        "pop r5 \n\t" \
+        "pop r4 \n\t" \
+        "pop r3 \n\t" \
+        "pop r2 \n\t" \
+        "pop r1 \n\t" \
+        "pop r0 \n\t" \
+        "out __SREG__, r0 \n\t" \
+        "pop r0 \n\t" \
+        "reti \n\t" \
+    );
+
 typedef struct {
     uint8_t *sp;
     volatile uint16_t delay_ticks;
@@ -18,9 +104,7 @@ volatile uint8_t current_task_index = 0;
 volatile uint8_t *volatile current_sp;
 
 void idle_task(void) {
-    while(1) {
-        // Do nothing
-    }
+    while(1) { }
 }
 
 void init_timer0(void) {
@@ -69,65 +153,20 @@ void rtos_exit_critical(void) {
 
 void rtos_sleep(uint16_t ms) {
     tasks[current_task_index].delay_ticks = ms;
-    // Wait for the scheduler to switch us out
     while(tasks[current_task_index].delay_ticks > 0);
 }
 
 void rtos_start(void) {
     if (task_count == 0) return;
-
     current_task_index = 0;
     current_sp = tasks[0].sp;
-
-    // Load the stack pointer of the first task
-    SPL = (uint8_t)((uint16_t)current_sp & 0xFF);
-    SPH = (uint8_t)((uint16_t)current_sp >> 8);
-
-    // Restore Context (Matches the ISR Restore section)
-    asm volatile (
-        "pop r31 \n\t"
-        "pop r30 \n\t"
-        "pop r29 \n\t"
-        "pop r28 \n\t"
-        "pop r27 \n\t"
-        "pop r26 \n\t"
-        "pop r25 \n\t"
-        "pop r24 \n\t"
-        "pop r23 \n\t"
-        "pop r22 \n\t"
-        "pop r21 \n\t"
-        "pop r20 \n\t"
-        "pop r19 \n\t"
-        "pop r18 \n\t"
-        "pop r17 \n\t"
-        "pop r16 \n\t"
-        "pop r15 \n\t"
-        "pop r14 \n\t"
-        "pop r13 \n\t"
-        "pop r12 \n\t"
-        "pop r11 \n\t"
-        "pop r10 \n\t"
-        "pop r9 \n\t"
-        "pop r8 \n\t"
-        "pop r7 \n\t"
-        "pop r6 \n\t"
-        "pop r5 \n\t"
-        "pop r4 \n\t"
-        "pop r3 \n\t"
-        "pop r2 \n\t"
-        "pop r1 \n\t"
-        "pop r0 \n\t" // Get saved SREG
-        "out __SREG__, r0 \n\t" // Restore SREG
-        "pop r0 \n\t" // Restore R0
-        "reti \n\t" // Enable interrupts and return to task
-    );
+    RESTORE_CONTEXT();
 }
 
 void rtos_scheduler_update(void) {
     // Save current stack pointer to the TCB
     tasks[current_task_index].sp = (uint8_t*)current_sp;
     
-    // Decrement delay ticks for all tasks
     for (uint8_t i = 0; i < task_count; i++) {
         if (tasks[i].delay_ticks > 0) {
             tasks[i].delay_ticks--;
@@ -154,102 +193,11 @@ void rtos_scheduler_update(void) {
 }
 
 ISR(TIMER0_COMPA_vect, ISR_NAKED) {
-    // 1. Save Context
-    asm volatile (
-        "push r0 \n\t"
-        "in r0, __SREG__ \n\t"
-        "push r0 \n\t"
-        "push r1 \n\t"
-        "clr r1 \n\t"
-        "push r2 \n\t"
-        "push r3 \n\t"
-        "push r4 \n\t"
-        "push r5 \n\t"
-        "push r6 \n\t"
-        "push r7 \n\t"
-        "push r8 \n\t"
-        "push r9 \n\t"
-        "push r10 \n\t"
-        "push r11 \n\t"
-        "push r12 \n\t"
-        "push r13 \n\t"
-        "push r14 \n\t"
-        "push r15 \n\t"
-        "push r16 \n\t"
-        "push r17 \n\t"
-        "push r18 \n\t"
-        "push r19 \n\t"
-        "push r20 \n\t"
-        "push r21 \n\t"
-        "push r22 \n\t"
-        "push r23 \n\t"
-        "push r24 \n\t"
-        "push r25 \n\t"
-        "push r26 \n\t"
-        "push r27 \n\t"
-        "push r28 \n\t"
-        "push r29 \n\t"
-        "push r30 \n\t"
-        "push r31 \n\t"
-    );
+    SAVE_CONTEXT();
 
-    // 2. Save SP to current task
-    asm volatile (
-        "in r26, __SP_L__ \n\t"
-        "in r27, __SP_H__ \n\t"
-        "sts current_sp, r26 \n\t"
-        "sts current_sp+1, r27 \n\t"
-    );
-
-    // 3. Call Scheduler Logic (C function)
     asm volatile (
         "call rtos_scheduler_update \n\t"
     );
 
-    // 4. Restore SP from new task
-    asm volatile (
-        "lds r26, current_sp \n\t"
-        "lds r27, current_sp+1 \n\t"
-        "out __SP_L__, r26 \n\t"
-        "out __SP_H__, r27 \n\t"
-    );
-
-    // 5. Restore Context
-    asm volatile (
-        "pop r31 \n\t"
-        "pop r30 \n\t"
-        "pop r29 \n\t"
-        "pop r28 \n\t"
-        "pop r27 \n\t"
-        "pop r26 \n\t"
-        "pop r25 \n\t"
-        "pop r24 \n\t"
-        "pop r23 \n\t"
-        "pop r22 \n\t"
-        "pop r21 \n\t"
-        "pop r20 \n\t"
-        "pop r19 \n\t"
-        "pop r18 \n\t"
-        "pop r17 \n\t"
-        "pop r16 \n\t"
-        "pop r15 \n\t"
-        "pop r14 \n\t"
-        "pop r13 \n\t"
-        "pop r12 \n\t"
-        "pop r11 \n\t"
-        "pop r10 \n\t"
-        "pop r9 \n\t"
-        "pop r8 \n\t"
-        "pop r7 \n\t"
-        "pop r6 \n\t"
-        "pop r5 \n\t"
-        "pop r4 \n\t"
-        "pop r3 \n\t"
-        "pop r2 \n\t"
-        "pop r1 \n\t"
-        "pop r0 \n\t" // Saved SREG
-        "out __SREG__, r0 \n\t"
-        "pop r0 \n\t"
-        "reti \n\t"
-    );
+    RESTORE_CONTEXT();
 }
