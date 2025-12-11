@@ -5,7 +5,6 @@
 #include "../inc/rtos.h"
 
 //TODO: create a unified sleep function where if the sleep is >= 1ms than use the scheduler to sleep, otherwise use _delay_us
-//TODO: Implementing Semaphores
 
 #define SAVE_CONTEXT() \
     asm volatile ( \
@@ -161,6 +160,7 @@ void rtos_sem_take(Semaphore *sem) {
         tasks[current_task_index].state = TASK_BLOCKED;
         tasks[current_task_index].blocked_on = sem;
         rtos_exit_critical();
+        rtos_yield();
     }
 }
 
@@ -191,7 +191,7 @@ void rtos_sleep(uint16_t ms) {
     tasks[current_task_index].delay_ticks = ms;
     tasks[current_task_index].state = TASK_SLEEPING;
     rtos_exit_critical();
-    while(tasks[current_task_index].delay_ticks > 0);
+    rtos_yield();
 }
 
 void rtos_start(void) {
@@ -201,9 +201,7 @@ void rtos_start(void) {
     RESTORE_CONTEXT();
 }
 
-void rtos_scheduler_update(void) {
-    tasks[current_task_index].sp = (uint8_t*)current_sp;
-    
+void rtos_tick(void) {
     for (uint8_t i = 0; i < task_count; i++) {
         if (tasks[i].state == TASK_SLEEPING) {
             if (tasks[i].delay_ticks > 0) {
@@ -214,6 +212,10 @@ void rtos_scheduler_update(void) {
             }
         }
     }
+}
+
+void rtos_scheduler(void) {
+    tasks[current_task_index].sp = (uint8_t*)current_sp;
 
     uint8_t next_task = current_task_index;
     
@@ -238,8 +240,17 @@ ISR(TIMER0_COMPA_vect, ISR_NAKED) {
     SAVE_CONTEXT();
 
     asm volatile (
-        "call rtos_scheduler_update \n\t"
+        "call rtos_tick \n\t"
+        "call rtos_scheduler \n\t"
     );
 
+    RESTORE_CONTEXT();
+}
+
+void __attribute__((naked)) rtos_yield(void) {
+    SAVE_CONTEXT();
+    asm volatile (
+        "call rtos_scheduler \n\t"
+    );
     RESTORE_CONTEXT();
 }
