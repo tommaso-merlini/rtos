@@ -1,9 +1,11 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdint.h>
+#include <string.h>
 #include "../inc/rtos.h"
 
 //TODO: create a unified sleep function where if the sleep is >= 1ms than use the scheduler to sleep, otherwise use _delay_us
+//TODO: Implementing Semaphores
 
 #define SAVE_CONTEXT() \
     asm volatile ( \
@@ -91,11 +93,6 @@
         "reti \n\t" \
     );
 
-typedef struct {
-    uint8_t *sp;
-    volatile uint16_t delay_ticks;
-} TCB;
-
 TCB tasks[MAX_TASKS];
 uint8_t task_stacks[MAX_TASKS][STACK_SIZE];
 volatile uint8_t task_count = 0;
@@ -120,12 +117,12 @@ void rtos_init(void) {
     task_count = 0;
     current_task_index = 0;
 
-    rtos_create_task(idle_task, 0);
+    rtos_create_task(idle_task, 0, "idle task");
 }
 
 //TODO: do something with priority
-void rtos_create_task(void (*task_func)(void), uint8_t priority) {
-    if (task_count >= MAX_TASKS) return;
+int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]) {
+    if (task_count >= MAX_TASKS) return -1;
     
     uint8_t *stack_ptr = (uint8_t *)&task_stacks[task_count][STACK_SIZE - 1];
     uint16_t address = (uint16_t)task_func;
@@ -140,10 +137,48 @@ void rtos_create_task(void (*task_func)(void), uint8_t priority) {
 
     tasks[task_count].sp = stack_ptr;
     tasks[task_count].delay_ticks = 0;
+    tasks[task_count].id = task_count;
+    strcpy(tasks[task_count].name, name);
+    tasks[task_count].state = TASK_READY;
+    tasks[task_count].blocked_on = NULL;
     task_count++;
+    return tasks[task_count - 1].id;
 }
 
-//TODO: implement mutexes instead of this because this block interrupts (which are used by uart messaging for example)
+void rtos_sem_init(Semaphore *sem, int8_t max_count, int8_t initial_count) {
+    sem->max_count = max_count;
+    sem->count = initial_count;
+}
+
+void rtos_sem_take(Semaphore *sem) {
+    while(1) {
+        rtos_enter_critical();
+        if (sem->count > 0) {
+            sem->count--;
+            rtos_exit_critical();
+            return;
+        }
+        tasks[current_task_index].state = TASK_BLOCKED;
+        tasks[current_task_index].blocked_on = sem;
+        rtos_exit_critical();
+    }
+}
+
+void rtos_sem_give(Semaphore *sem) {
+    rtos_enter_critical();
+    if (sem->count < sem->max_count) {
+        sem->count++;
+        for(int i = 0; i < task_count; i++) {
+            if (tasks[i].state == TASK_BLOCKED && tasks[i].blocked_on == sem) {
+                tasks[i].state = TASK_READY;
+                tasks[i].blocked_on = 0;
+                break; //NOTE: Wake up one task (priority handling could be added here)
+            }
+        }
+    }
+    rtos_exit_critical();
+}
+
 void rtos_enter_critical(void) {
     cli();
 }
@@ -152,7 +187,10 @@ void rtos_exit_critical(void) {
 }
 
 void rtos_sleep(uint16_t ms) {
+    rtos_enter_critical();
     tasks[current_task_index].delay_ticks = ms;
+    tasks[current_task_index].state = TASK_SLEEPING;
+    rtos_exit_critical();
     while(tasks[current_task_index].delay_ticks > 0);
 }
 
@@ -164,26 +202,30 @@ void rtos_start(void) {
 }
 
 void rtos_scheduler_update(void) {
-    // Save current stack pointer to the TCB
     tasks[current_task_index].sp = (uint8_t*)current_sp;
     
     for (uint8_t i = 0; i < task_count; i++) {
-        if (tasks[i].delay_ticks > 0) {
-            tasks[i].delay_ticks--;
+        if (tasks[i].state == TASK_SLEEPING) {
+            if (tasks[i].delay_ticks > 0) {
+                tasks[i].delay_ticks--;
+            }
+            if (tasks[i].delay_ticks == 0) {
+                tasks[i].state = TASK_READY;
+            }
         }
     }
 
-    // Find next ready task
     uint8_t next_task = current_task_index;
     
     // Loop through tasks to find one that is ready
     // We start from next_task + 1 and wrap around
+    // WARNING: do we really wrap around? why are we not using % then?
     // Since we have an Idle Task (delay=0), we are guaranteed to find one.
     do {
         next_task++;
         if (next_task >= task_count) next_task = 0;
         
-        if (tasks[next_task].delay_ticks == 0) {
+        if (tasks[next_task].state == TASK_READY) {
             current_task_index = next_task;
             break;
         }

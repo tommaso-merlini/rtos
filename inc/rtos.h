@@ -4,20 +4,36 @@
 #include <stdint.h>
 #include "rtos_config.h"
 
-// Initialize the RTOS structures
 void rtos_init(void);
-
-// Create a task with a given function and priority (priority not used in RR)
-void rtos_create_task(void (*task_func)(void), uint8_t priority);
-
-// Sleep for a specific number of ticks (ms)
+int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]);
 void rtos_sleep(uint16_t ms);
-
-// Critical Section Management
 void rtos_enter_critical(void);
 void rtos_exit_critical(void);
-
-// Start the RTOS scheduler (this function generally does not return)
 void rtos_start(void);
+
+typedef enum {
+    TASK_READY,
+    TASK_SLEEPING,
+    TASK_BLOCKED
+} TaskState;
+
+typedef struct {
+    volatile int8_t count;
+    int8_t max_count;
+} Semaphore;
+
+void rtos_sem_init(Semaphore *sem, int8_t max_count, int8_t initial_count);
+void rtos_sem_take(Semaphore *sem);
+void rtos_sem_give(Semaphore *sem);
+
+typedef struct {
+    uint8_t *sp;
+    volatile uint16_t delay_ticks;
+    char name[16];
+    uint16_t id;
+    TaskState state;
+    Semaphore *blocked_on;
+} TCB;
+TCB tasks[MAX_TASKS];
 
 #endif // RTOS_H

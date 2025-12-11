@@ -12,6 +12,7 @@
 #endif
 
 uint8_t count = 0;
+Semaphore mutex;
 
 // Helper to print number
 void print_num(uint8_t num) {
@@ -33,12 +34,12 @@ void print_num(uint8_t num) {
 void task1(void) {
     while(1) {
         // PORTB ^= (1 << LED);
-        rtos_enter_critical();
+        rtos_sem_take(&mutex);
         count++;
-        rtos_exit_critical();
         uart_print("Task1: ");
         print_num(count);
         uart_print("\n");
+        rtos_sem_give(&mutex);
         rtos_sleep(500);
     }
 }
@@ -48,12 +49,12 @@ void task2(void) {
     rtos_sleep(1000); 
     while(1) {
         // uart_print("Task 2 is running...\n");
-        rtos_enter_critical();
+        rtos_sem_take(&mutex);
         count -= 2;
-        rtos_exit_critical();
         uart_print("Task2: ");
         print_num(count);
         uart_print("\n");
+        rtos_sem_give(&mutex);
         rtos_sleep(1000);
     }
 }
@@ -66,9 +67,10 @@ int main(void) {
     uart_print("System Booting...\n");
 
     rtos_init();
+    rtos_sem_init(&mutex, 1, 1);
     
-    rtos_create_task(task1, 1);
-    rtos_create_task(task2, 1);
+    rtos_create_task(task1, 1, "task 1");
+    rtos_create_task(task2, 1, "task 2");
     
     uart_print("Starting RTOS...\n");
 
