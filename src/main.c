@@ -87,7 +87,7 @@ void servo_task(void) {
             step = 1;
         }
         
-        rtos_sleep(10); // Update every 10ms
+        rtos_sleep(10);
     }
 }
 
