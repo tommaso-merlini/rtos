@@ -15,7 +15,6 @@
 uint8_t count = 0;
 Semaphore mutex;
 
-// Helper to print number
 void print_num(uint8_t num) {
     if (num == 0) {
         uart_putc('0');
@@ -76,9 +75,7 @@ void servo_task(void) {
             loop_count = 0;
         }
         
-        // Sweep logic
         angle += step;
-        
         if (angle >= 180) {
             angle = 180;
             step = -1;
