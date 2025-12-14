@@ -6,15 +6,18 @@
 
 void rtos_init(void);
 int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]);
+void rtos_delete_task(uint8_t id);
 void rtos_sleep(uint16_t ms);
 void rtos_enter_critical(void);
 void rtos_exit_critical(void);
 void rtos_start(void);
 
 typedef enum {
+    TASK_EMPTY = 0,
     TASK_READY,
     TASK_SLEEPING,
-    TASK_BLOCKED
+    TASK_BLOCKED,
+    TASK_DELETED
 } TaskState;
 
 typedef struct {

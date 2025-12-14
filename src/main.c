@@ -44,7 +44,6 @@ void task1(void) {
 }
 
 void task2(void) {
-    // Initial delay to phase with task1 so we don't underflow (0 - 2)
     rtos_sleep(1000); 
     while(1) {
         rtos_sem_take(&mutex);
@@ -55,6 +54,15 @@ void task2(void) {
         rtos_sem_give(&mutex);
         rtos_sleep(1000);
     }
+}
+
+void task3(void) {
+    rtos_sleep(5000); 
+    rtos_sem_take(&mutex);
+    uart_print("TASK 5\n");
+    rtos_sem_give(&mutex);
+
+    return;
 }
 
 void servo_task(void) {
@@ -101,7 +109,8 @@ int main(void) {
     
     rtos_create_task(task1, 1, "task 1");
     rtos_create_task(task2, 1, "task 2");
-    rtos_create_task(servo_task, 1, "servo");
+    rtos_create_task(task3, 1, "task 2");
+    // rtos_create_task(servo_task, 1, "servo");
     
     uart_print("Starting RTOS...\n");
 

@@ -116,17 +116,48 @@ void rtos_init(void) {
     task_count = 0;
     current_task_index = 0;
 
+    for(int i = 0; i < MAX_TASKS; i++) {
+        tasks[i].state = TASK_EMPTY;
+    }
+
     rtos_create_task(idle_task, 0, "idle task");
+}
+
+void rtos_delete_task(uint8_t id) {
+    rtos_enter_critical();
+    if (id < MAX_TASKS) {
+        tasks[id].state = TASK_DELETED;
+    }
+    rtos_exit_critical();
+    rtos_yield();
+}
+
+void rtos_task_exit(void) {
+    rtos_delete_task(current_task_index);
 }
 
 //TODO: do something with priority
 int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]) {
-    if (task_count >= MAX_TASKS) return -1;
+    int slot = -1;
     
-    uint8_t *stack_ptr = (uint8_t *)&task_stacks[task_count][STACK_SIZE - 1];
+    for (int i = 0; i < MAX_TASKS; i++) {
+        if (tasks[i].state == TASK_EMPTY || tasks[i].state == TASK_DELETED) {
+            slot = i;
+            break;
+        }
+    }
+    
+    if (slot == -1) return -1;
+    if (slot >= task_count) task_count = slot + 1; //NOTE: why? the task count should only count the running tasks
+    
+    uint8_t *stack_ptr = (uint8_t *)&task_stacks[slot][STACK_SIZE - 1];
+    
+    uint16_t exit_address = (uint16_t)rtos_task_exit;
+    *stack_ptr-- = (uint8_t)(exit_address & 0x00FF);
+    *stack_ptr-- = (uint8_t)((exit_address >> 8) & 0x00FF);
     uint16_t address = (uint16_t)task_func;
-    *stack_ptr-- = (uint8_t)(address & 0x00FF);      // PC Low
-    *stack_ptr-- = (uint8_t)((address >> 8) & 0x00FF); // PC High
+    *stack_ptr-- = (uint8_t)(address & 0x00FF);
+    *stack_ptr-- = (uint8_t)((address >> 8) & 0x00FF);
     *stack_ptr-- = 0x00; //R0
     *stack_ptr-- = 0x80; //SREG: Global Interrupt Enable flag set
     *stack_ptr-- = 0x00; //R1
@@ -134,15 +165,17 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
         *stack_ptr-- = 0x00;
     }
 
-    tasks[task_count].sp = stack_ptr;
-    tasks[task_count].delay_ticks = 0;
-    tasks[task_count].id = task_count;
-    strcpy(tasks[task_count].name, name);
-    tasks[task_count].state = TASK_READY;
-    tasks[task_count].blocked_on = NULL;
-    task_count++;
-    return tasks[task_count - 1].id;
+    tasks[slot].sp = stack_ptr;
+    tasks[slot].delay_ticks = 0;
+    tasks[slot].id = slot;
+    strcpy(tasks[slot].name, name);
+    tasks[slot].state = TASK_READY;
+    tasks[slot].blocked_on = NULL;
+    
+    return slot;
 }
+
+
 
 void rtos_sem_init(Semaphore *sem, int8_t max_count, int8_t initial_count) {
     sem->max_count = max_count;
@@ -219,10 +252,6 @@ void rtos_scheduler(void) {
 
     uint8_t next_task = current_task_index;
     
-    // Loop through tasks to find one that is ready
-    // We start from next_task + 1 and wrap around
-    // WARNING: do we really wrap around? why are we not using % then?
-    // Since we have an Idle Task (delay=0), we are guaranteed to find one.
     do {
         next_task++;
         if (next_task >= task_count) next_task = 0;

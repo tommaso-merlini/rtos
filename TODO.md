@@ -8,7 +8,7 @@
     - Why: Shared global variables are error-prone and hard to scale. Queues allow tasks to safely pass data (messages) to each other without manual synchronization handling.
     - Implementation: Create a Queue struct (buffer, head, tail, size) and functions rtos_queue_send and rtos_queue_receive. These should block (putting the task to sleep) if the queue is full (sending) or empty (receiving).
 
-[] Task Deletion & Return Handling
+[x] Task Deletion & Return Handling
     - Currently, if a task function returns (reaches the end of its function body), the CPU will pop a garbage address from the stack and crash, as there is no return address.
     - Why: Tasks may need to finish their work and stop.
     - Implementation:
