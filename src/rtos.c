@@ -283,3 +283,10 @@ void __attribute__((naked)) rtos_yield(void) {
     );
     RESTORE_CONTEXT();
 }
+
+void __attribute__((naked)) rtos_suicide(void) {
+    asm volatile (
+        "call rtos_scheduler \n\t"
+    );
+    RESTORE_CONTEXT();
+}
