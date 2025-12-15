@@ -129,7 +129,7 @@ void rtos_delete_task(uint8_t id) {
         tasks[id].state = TASK_DELETED;
     }
     rtos_exit_critical();
-    rtos_yield();
+    rtos_suicide();
 }
 
 void rtos_task_exit(void) {
