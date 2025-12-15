@@ -21,3 +21,25 @@
     - There is currently no protection against a task writing beyond its STACK_SIZE (128 bytes).
     - Why: Stack overflows are a common cause of hard-to-debug crashes in embedded systems.
     - Implementation: Fill the stack area with a known pattern (e.g., 0xDEADBEEF) during creation. Check if this pattern is overwritten at the end of the stack during every context switch (rtos_scheduler).
+
+[] UART Command Shell (CLI)
+    -   Concept: Create a task that listens to UART input and parses commands like ps (process status), kill <id>, or servo <angle>.
+    -   Why: It turns your device into an interactive computer rather than a static firmware.
+
+[] "Top" Command (CPU Usage Monitor)
+    -   Concept: Modify the scheduler to track how many "ticks" each task consumes. Create a task that prints the CPU percentage for every task (like the Linux top command).
+    -   Why: Essential for analyzing performance and finding tasks that hog the CPU.
+
+[] Inter-Task Messaging (Mailboxes)
+    -   Concept: Currently, tasks synchronize via Semaphores (signals). Add "Mailboxes" so tasks can send actual data (integers or struct pointers) to each other safely.
+    -   Why: Allows for complex producer-consumer architectures (e.g., a sensor task sending data to a processing task).
+
+[] Priority Inversion "Solver"
+    -   Concept: Implement Priority Inheritance.
+    -   Why: It's a classic RTOS problem. If a Low Priority task holds a lock that a High Priority task needs, the High Priority task is blocked. If a Medium Priority task runs, it prevents the Low one from releasing the lock, effectively blocking the High one indefinitely. Solving this is "pro-level" RTOS development.
+
+[] Servo Waveform Generator
+    -   Concept: A dedicated task that calculates sine or triangle waves (using floating point or lookup tables) to drive the servo in smooth, organic sweeping motions instead of jerky jumps.
+
+[] Software Watchdog
+    -   Concept: A system task that requires other tasks to "check-in" periodically. If a task gets stuck (deadlock or infinite loop), the watchdog detects it and restarts that specific task or the whole system.
