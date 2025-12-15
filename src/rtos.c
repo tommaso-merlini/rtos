@@ -4,6 +4,8 @@
 #include <string.h>
 #include "../inc/rtos.h"
 
+void rtos_scheduler(void);
+
 //TODO: create a unified sleep function where if the sleep is >= 1ms than use the scheduler to sleep, otherwise use _delay_us
 
 #define SAVE_CONTEXT() \
@@ -99,8 +101,40 @@ volatile uint8_t current_task_index = 0;
 
 volatile uint8_t *volatile current_sp;
 
+// Priority Scheduler Metadata
+volatile uint8_t ready_priority_group = 0;
+volatile uint8_t priority_counts[8] = {0};
+
 void idle_task(void) {
     while(1) { }
+}
+
+//WARNING: MUST be called with interrupts disabled or inside critical section
+void rtos_set_task_state(uint8_t index, TaskState new_state) {
+    if (index >= MAX_TASKS) return;
+    
+    TaskState old_state = tasks[index].state;
+    if (old_state == new_state) return;
+    
+    uint8_t prio = tasks[index].priority;
+    
+    if (old_state == TASK_READY) {
+        if (priority_counts[prio] > 0) {
+            priority_counts[prio]--;
+            if (priority_counts[prio] == 0) {
+                ready_priority_group &= ~(1 << prio);
+            }
+        }
+    }
+    
+    if (new_state == TASK_READY) {
+        if (priority_counts[prio] == 0) {
+            ready_priority_group |= (1 << prio);
+        }
+        priority_counts[prio]++;
+    }
+    
+    tasks[index].state = new_state;
 }
 
 void init_timer0(void) {
@@ -115,6 +149,9 @@ void rtos_init(void) {
     
     task_count = 0;
     current_task_index = 0;
+    
+    ready_priority_group = 0;
+    memset((void*)priority_counts, 0, sizeof(priority_counts));
 
     for(int i = 0; i < MAX_TASKS; i++) {
         tasks[i].state = TASK_EMPTY;
@@ -126,7 +163,7 @@ void rtos_init(void) {
 void rtos_delete_task(uint8_t id) {
     rtos_enter_critical();
     if (id < MAX_TASKS) {
-        tasks[id].state = TASK_DELETED;
+        rtos_set_task_state(id, TASK_DELETED);
     }
     rtos_exit_critical();
     rtos_suicide();
@@ -169,8 +206,12 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
     tasks[slot].delay_ticks = 0;
     tasks[slot].id = slot;
     strcpy(tasks[slot].name, name);
-    tasks[slot].state = TASK_READY;
     tasks[slot].blocked_on = NULL;
+    tasks[slot].priority = priority;
+    
+    rtos_enter_critical();
+    rtos_set_task_state(slot, TASK_READY);
+    rtos_exit_critical();
     
     return slot;
 }
@@ -190,7 +231,7 @@ void rtos_sem_take(Semaphore *sem) {
             rtos_exit_critical();
             return;
         }
-        tasks[current_task_index].state = TASK_BLOCKED;
+        rtos_set_task_state(current_task_index, TASK_BLOCKED);
         tasks[current_task_index].blocked_on = sem;
         rtos_exit_critical();
         rtos_yield();
@@ -203,9 +244,9 @@ void rtos_sem_give(Semaphore *sem) {
         sem->count++;
         for(int i = 0; i < task_count; i++) {
             if (tasks[i].state == TASK_BLOCKED && tasks[i].blocked_on == sem) {
-                tasks[i].state = TASK_READY;
+                rtos_set_task_state(i, TASK_READY);
                 tasks[i].blocked_on = 0;
-                break; //NOTE: Wake up one task (priority handling could be added here)
+                break;
             }
         }
     }
@@ -222,15 +263,15 @@ void rtos_exit_critical(void) {
 void rtos_sleep(uint16_t ms) {
     rtos_enter_critical();
     tasks[current_task_index].delay_ticks = ms;
-    tasks[current_task_index].state = TASK_SLEEPING;
+    rtos_set_task_state(current_task_index, TASK_SLEEPING);
     rtos_exit_critical();
     rtos_yield();
 }
 
 void rtos_start(void) {
     if (task_count == 0) return;
-    current_task_index = 0;
-    current_sp = tasks[0].sp;
+    rtos_scheduler(); 
+    current_sp = tasks[current_task_index].sp;
     RESTORE_CONTEXT();
 }
 
@@ -241,7 +282,7 @@ void rtos_tick(void) {
                 tasks[i].delay_ticks--;
             }
             if (tasks[i].delay_ticks == 0) {
-                tasks[i].state = TASK_READY;
+                rtos_set_task_state(i, TASK_READY);
             }
         }
     }
@@ -250,17 +291,44 @@ void rtos_tick(void) {
 void rtos_scheduler(void) {
     tasks[current_task_index].sp = (uint8_t*)current_sp;
 
-    uint8_t next_task = current_task_index;
-    
-    do {
-        next_task++;
-        if (next_task >= task_count) next_task = 0;
-        
-        if (tasks[next_task].state == TASK_READY) {
-            current_task_index = next_task;
-            break;
+    // 1. Find the highest active priority
+    if (ready_priority_group == 0) {
+        // Fallback to idle task (always at index 0 in this system)
+        current_task_index = 0; 
+    } else {
+        // Find highest set bit in O(1) [loop unrolled or intrinsic]
+        int8_t highest_prio = -1;
+        for (int8_t p = 7; p >= 0; p--) {
+            if (ready_priority_group & (1 << p)) {
+                highest_prio = p;
+                break;
+            }
         }
-    } while (next_task != current_task_index);
+
+        // 2. Round-Robin among tasks with highest_prio
+        uint8_t next_task = current_task_index;
+        uint8_t found = 0;
+        
+        do {
+            next_task++;
+            if (next_task >= task_count) next_task = 0;
+            
+            // Skip idle task if we have real work
+            if (next_task == 0 && ready_priority_group > 1) continue; 
+            
+            if (tasks[next_task].state == TASK_READY && 
+                tasks[next_task].priority == highest_prio) {
+                current_task_index = next_task;
+                found = 1;
+                break;
+            }
+        } while (next_task != current_task_index);
+        
+        // Safety fallback
+        if (!found && highest_prio != -1) {
+            current_task_index = 0;
+        }
+    }
 
     current_sp = tasks[current_task_index].sp;
 }

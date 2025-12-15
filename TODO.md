@@ -3,6 +3,8 @@
     - Why: Real-time systems require high-priority tasks (e.g., sensor reading, motor control) to preempt lower-priority ones (e.g., logging, UI).
     - Implementation: Modify rtos_scheduler to scan the tasks array and select the TASK_READY task with the highest priority value instead of just the next one in the list.
 
+    NOW WE IMPLEMENTED A VERY STARVATION PRONE PRIORITY SCHEDULING. RESEARCH "Priority Aging."
+
 [] Message Queues (IPC)
     - The system currently relies on global variables protected by semaphores for communication (as seen in main.c).
     - Why: Shared global variables are error-prone and hard to scale. Queues allow tasks to safely pass data (messages) to each other without manual synchronization handling.

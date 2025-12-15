@@ -36,6 +36,7 @@ typedef struct {
     volatile uint16_t delay_ticks;
     char name[16];
     uint16_t id;
+    uint8_t priority;
     TaskState state;
     Semaphore *blocked_on;
 } TCB;
