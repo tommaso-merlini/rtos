@@ -4,8 +4,6 @@
 #include <string.h>
 #include "../inc/rtos.h"
 
-void rtos_scheduler(void);
-
 //TODO: create a unified sleep function where if the sleep is >= 1ms than use the scheduler to sleep, otherwise use _delay_us
 
 #define SAVE_CONTEXT() \
@@ -101,7 +99,6 @@ volatile uint8_t current_task_index = 0;
 
 volatile uint8_t *volatile current_sp;
 
-// Priority Scheduler Metadata
 volatile uint8_t ready_priority_group = 0;
 volatile uint8_t priority_counts[8] = {0};
 
@@ -256,36 +253,9 @@ void rtos_sem_give(Semaphore *sem) {
 void rtos_enter_critical(void) {
     cli();
 }
+
 void rtos_exit_critical(void) {
     sei();
-}
-
-void rtos_sleep(uint16_t ms) {
-    rtos_enter_critical();
-    tasks[current_task_index].delay_ticks = ms;
-    rtos_set_task_state(current_task_index, TASK_SLEEPING);
-    rtos_exit_critical();
-    rtos_yield();
-}
-
-void rtos_start(void) {
-    if (task_count == 0) return;
-    rtos_scheduler(); 
-    current_sp = tasks[current_task_index].sp;
-    RESTORE_CONTEXT();
-}
-
-void rtos_tick(void) {
-    for (uint8_t i = 0; i < task_count; i++) {
-        if (tasks[i].state == TASK_SLEEPING) {
-            if (tasks[i].delay_ticks > 0) {
-                tasks[i].delay_ticks--;
-            }
-            if (tasks[i].delay_ticks == 0) {
-                rtos_set_task_state(i, TASK_READY);
-            }
-        }
-    }
 }
 
 void rtos_scheduler(void) {
@@ -331,6 +301,34 @@ void rtos_scheduler(void) {
     }
 
     current_sp = tasks[current_task_index].sp;
+}
+
+void rtos_sleep(uint16_t ms) {
+    rtos_enter_critical();
+    tasks[current_task_index].delay_ticks = ms;
+    rtos_set_task_state(current_task_index, TASK_SLEEPING);
+    rtos_exit_critical();
+    rtos_yield();
+}
+
+void rtos_start(void) {
+    if (task_count == 0) return;
+    rtos_scheduler();
+    current_sp = tasks[current_task_index].sp;
+    RESTORE_CONTEXT();
+}
+
+void rtos_tick(void) {
+    for (uint8_t i = 0; i < task_count; i++) {
+        if (tasks[i].state == TASK_SLEEPING) {
+            if (tasks[i].delay_ticks > 0) {
+                tasks[i].delay_ticks--;
+            }
+            if (tasks[i].delay_ticks == 0) {
+                rtos_set_task_state(i, TASK_READY);
+            }
+        }
+    }
 }
 
 ISR(TIMER0_COMPA_vect, ISR_NAKED) {
