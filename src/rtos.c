@@ -213,8 +213,6 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
     return slot;
 }
 
-
-
 void rtos_sem_init(Semaphore *sem, int8_t max_count, int8_t initial_count) {
     sem->max_count = max_count;
     sem->count = initial_count;
