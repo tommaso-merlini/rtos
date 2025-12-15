@@ -260,13 +260,9 @@ void rtos_exit_critical(void) {
 
 void rtos_scheduler(void) {
     tasks[current_task_index].sp = (uint8_t*)current_sp;
-
-    // 1. Find the highest active priority
     if (ready_priority_group == 0) {
-        // Fallback to idle task (always at index 0 in this system)
         current_task_index = 0; 
     } else {
-        // Find highest set bit in O(1) [loop unrolled or intrinsic]
         int8_t highest_prio = -1;
         for (int8_t p = 7; p >= 0; p--) {
             if (ready_priority_group & (1 << p)) {
@@ -274,18 +270,12 @@ void rtos_scheduler(void) {
                 break;
             }
         }
-
-        // 2. Round-Robin among tasks with highest_prio
         uint8_t next_task = current_task_index;
         uint8_t found = 0;
-        
         do {
             next_task++;
             if (next_task >= task_count) next_task = 0;
-            
-            // Skip idle task if we have real work
             if (next_task == 0 && ready_priority_group > 1) continue; 
-            
             if (tasks[next_task].state == TASK_READY && 
                 tasks[next_task].priority == highest_prio) {
                 current_task_index = next_task;
@@ -293,13 +283,10 @@ void rtos_scheduler(void) {
                 break;
             }
         } while (next_task != current_task_index);
-        
-        // Safety fallback
         if (!found && highest_prio != -1) {
             current_task_index = 0;
         }
     }
-
     current_sp = tasks[current_task_index].sp;
 }
 
