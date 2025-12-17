@@ -170,7 +170,6 @@ void rtos_task_exit(void) {
     rtos_delete_task(current_task_index);
 }
 
-//TODO: do something with priority
 int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]) {
     int slot = -1;
     
@@ -182,7 +181,7 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
     }
     
     if (slot == -1) return -1;
-    if (slot >= task_count) task_count = slot + 1; //NOTE: why? the task count should only count the running tasks
+    if (slot >= task_count) task_count = slot + 1; //WARNING: why? the task count should only count the running tasks
     
     uint8_t *stack_ptr = (uint8_t *)&task_stacks[slot][STACK_SIZE - 1];
     
