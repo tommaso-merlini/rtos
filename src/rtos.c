@@ -320,7 +320,7 @@ ISR(TIMER0_COMPA_vect, ISR_NAKED) {
     SAVE_CONTEXT();
 
     asm volatile (
-        "call rtos_tick \n\t"
+        "call rtos_tick \n\t" //NOTE: we dont need to enter a critical section because ISR already disables the interrupts
         "call rtos_scheduler \n\t"
     );
 
