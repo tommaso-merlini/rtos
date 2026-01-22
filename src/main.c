@@ -3,6 +3,7 @@
 #include <util/delay.h>
 #include "../inc/uart.h"
 #include "../inc/rtos.h"
+#include "shell.h"
 
 void task_high(void) {
     while(1) {
@@ -34,11 +35,9 @@ int main(void) {
 
     rtos_init();
 
-    rtos_create_task(task_high, 2, "HighPrio");
-    rtos_create_task(task_low,  1, "LowPrio");
-    rtos_create_task(task_idle_monitor, 0, "IdleMon");
+    rtos_create_task(shell_task, 3, "HighPrio");
 
-    uart_print("Starting Scheduler...\n");
+    // uart_print("Starting Scheduler...\n");
     rtos_start();
 
     return 0;

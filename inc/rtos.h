@@ -28,6 +28,7 @@ typedef struct {
 void rtos_sem_init(Semaphore *sem, int8_t max_count, int8_t initial_count);
 void rtos_sem_take(Semaphore *sem);
 void rtos_sem_give(Semaphore *sem);
+void rtos_sem_give_from_isr(Semaphore *sem);  // ISR-safe version
 void rtos_yield(void);
 void rtos_suicide(void);
 
@@ -40,6 +41,7 @@ typedef struct {
     TaskState state;
     Semaphore *blocked_on;
 } TCB;
+
 TCB tasks[MAX_TASKS];
 
 #endif // RTOS_H

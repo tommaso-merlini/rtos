@@ -2,6 +2,7 @@
 #include <avr/interrupt.h>
 #include <stdint.h>
 #include <string.h>
+#include <util/delay.h>
 #include "../inc/rtos.h"
 
 //TODO: create a unified sleep function where if the sleep is >= 1ms than use the scheduler to sleep, otherwise use _delay_us
@@ -142,7 +143,8 @@ void init_timer0(void) {
 }
 
 void rtos_init(void) {
-    init_timer0();
+    // NOTE: Timer is NOT started here anymore - it's started in rtos_start()
+    // This prevents preemption before the scheduler is ready
     
     task_count = 0;
     current_task_index = 0;
@@ -247,6 +249,23 @@ void rtos_sem_give(Semaphore *sem) {
     rtos_exit_critical();
 }
 
+// ISR-safe version - does NOT re-enable interrupts
+// Use this when calling from an ISR context
+void rtos_sem_give_from_isr(Semaphore *sem) {
+    // No cli() needed - already in ISR with interrupts disabled
+    if (sem->count < sem->max_count) {
+        sem->count++;
+        for(int i = 0; i < task_count; i++) {
+            if (tasks[i].state == TASK_BLOCKED && tasks[i].blocked_on == sem) {
+                rtos_set_task_state(i, TASK_READY);
+                tasks[i].blocked_on = 0;
+                break;
+            }
+        }
+    }
+    // No sei() - ISR will return and restore interrupt state naturally
+}
+
 void rtos_enter_critical(void) {
     cli();
 }
@@ -255,8 +274,14 @@ void rtos_exit_critical(void) {
     sei();
 }
 
+static uint8_t scheduler_started = 0;
+
 void rtos_scheduler(void) {
-    tasks[current_task_index].sp = (uint8_t*)current_sp;
+    // Skip saving context on first call - there's no valid context yet
+    if (scheduler_started) {
+        tasks[current_task_index].sp = (uint8_t*)current_sp;
+    }
+    scheduler_started = 1;
     if (ready_priority_group == 0) {
         current_task_index = 0; 
     } else {
@@ -297,6 +322,10 @@ void rtos_sleep(uint16_t ms) {
 
 void rtos_start(void) {
     if (task_count == 0) return;
+    
+    // Start the timer AFTER scheduler is ready
+    init_timer0();
+    
     rtos_scheduler();
     current_sp = tasks[current_task_index].sp;
     RESTORE_CONTEXT();

@@ -1,9 +1,10 @@
 #ifndef RTOS_CONFIG_H
 #define RTOS_CONFIG_H
 
-// Placeholder for RTOS configuration
-#define MAX_TASKS 4
-#define STACK_SIZE 128
+// RTOS configuration
+// Note: ATmega328P has only 2KB RAM, be careful with these values
+#define MAX_TASKS 6
+#define STACK_SIZE 128 
 #define CONTEXT_SWITCH_MS 10000
 
 #endif // RTOS_CONFIG_H
