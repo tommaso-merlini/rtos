@@ -30,6 +30,12 @@ void uart_init(uint32_t baud) {
 }
 
 void uart_putc(char c) {
+    // Auto-add carriage return before newline for proper terminal display
+    if (c == '\n') {
+        while (!(UCSR0A & (1 << UDRE0)));
+        UDR0 = '\r';
+    }
+    
     // Wait for empty transmit buffer
     while (!(UCSR0A & (1 << UDRE0)));
     
@@ -48,6 +54,21 @@ void uart_print(const char *str) {
 ISR(USART_RX_vect) {
     char c = UDR0;
     
+    // Handle backspace (0x08 or 0x7F DEL)
+    if (c == '\b' || c == 0x7F) {
+        if (rx_index > 0) {
+            rx_index--;
+            // Erase character on terminal: backspace, space, backspace
+            uart_putc('\b');
+            uart_putc(' ');
+            uart_putc('\b');
+        }
+        return;
+    }
+    
+    // Echo character back to terminal
+    uart_putc(c);
+    
     if (c == '\n' || c == '\r') {
         // Line complete - null terminate and signal shell
         rx_buffer[rx_index] = '\0';
@@ -64,7 +85,6 @@ ISR(USART_RX_vect) {
 // Block until a complete line is received, then copy it to dest
 // Returns pointer to dest
 char* uart_getline(char *dest, uint8_t max_len) {
-
     // Wait for line to be ready
     rtos_sem_take(&shell_sem);
     

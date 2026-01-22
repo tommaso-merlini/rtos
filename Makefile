@@ -54,8 +54,7 @@ flash: $(TARGET).hex
 	$(AVRDUDE) -p $(MCU) -c $(PROGRAMMER) -P $(PORT) -b $(BAUD) -U flash:w:$<:i
 
 monitor:
-	stty -F $(PORT) $(BAUD) cs8 -cstopb -parenb raw -echo
-	cat $(PORT)
+	screen $(PORT) $(BAUD)
 
 clean:
 	rm -rf $(OBJDIR) $(BINDIR)

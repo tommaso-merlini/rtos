@@ -35,7 +35,8 @@ int main(void) {
 
     rtos_init();
 
-    rtos_create_task(shell_task, 3, "HighPrio");
+    rtos_create_task(shell_task, 3, "Shell");
+    rtos_create_task(task_high, 1, "Task_low");
 
     // uart_print("Starting Scheduler...\n");
     rtos_start();
