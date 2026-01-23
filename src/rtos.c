@@ -164,8 +164,13 @@ void rtos_delete_task(uint8_t id) {
     if (id < MAX_TASKS) {
         rtos_set_task_state(id, TASK_DELETED);
     }
+    uint8_t is_self = (id == current_task_index);
     rtos_exit_critical();
-    rtos_suicide();
+    
+    // Only suicide if deleting ourselves - otherwise just return
+    if (is_self) {
+        rtos_suicide();
+    }
 }
 
 void rtos_task_exit(void) {

@@ -7,11 +7,8 @@
 
 void task_high(void) {
     while(1) {
-        uart_print("HIGH running\n");
         for(volatile int i=0; i<30000; i++); 
-        uart_print("HIGH sleeping\n");
         rtos_sleep(2000);
-        uart_print("HIGH awake\n");
     }
 }
 
@@ -35,11 +32,12 @@ int main(void) {
 
     rtos_init();
 
+    rtos_create_task(task_high, 1, "Task_low");
     rtos_create_task(shell_task, 3, "Shell");
-    // rtos_create_task(task_high, 1, "Task_low");
 
-    // uart_print("Starting Scheduler...\n");
     rtos_start();
+
+    //TODO: create tasks after start
 
     return 0;
 }
