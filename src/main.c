@@ -31,12 +31,12 @@ void task_idle_monitor(void) {
 int main(void) {
     uart_init(57600);
     _delay_ms(1000);
-    uart_print("\n\n--- RTOS Priority Test ---\n");
+    uart_print("\n\n==== REAL TIME OPERATING SYSTEM: WELCOME!\n");
 
     rtos_init();
 
     rtos_create_task(shell_task, 3, "Shell");
-    rtos_create_task(task_high, 1, "Task_low");
+    // rtos_create_task(task_high, 1, "Task_low");
 
     // uart_print("Starting Scheduler...\n");
     rtos_start();

@@ -135,10 +135,7 @@ static void shell_execute(const char *cmd) {
 // Main shell task
 void shell_task(void) {
     char cmd_buffer[CMD_BUFFER_SIZE];
-    
-    uart_print("\n--- RTOS Shell ---\n");
-    uart_print("Type 'help' for available commands\n\n");
-    
+
     while (1) {
         uart_print("> ");
         
