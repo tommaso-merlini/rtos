@@ -32,7 +32,7 @@ OBJECTS = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SOURCES))
 TARGET = $(BINDIR)/rtos
 
 # Targets
-all: $(TARGET).hex
+all: db $(TARGET).hex
 
 $(TARGET).elf: $(OBJECTS) | $(BINDIR)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
@@ -59,4 +59,8 @@ monitor:
 clean:
 	rm -rf $(OBJDIR) $(BINDIR)
 
-.PHONY: all flash clean monitor
+db:
+	compiledb make -n
+
+.PHONY: all flash clean monitor db
+
