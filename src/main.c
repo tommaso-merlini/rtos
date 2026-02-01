@@ -31,10 +31,8 @@ int main(void) {
     uart_print("\n\n==== REAL TIME OPERATING SYSTEM: WELCOME!\n");
 
     rtos_init();
-
-    rtos_create_task(task_high, 1, "Task_low");
+    rtos_create_task(task_high, 1, "Task_High");
     rtos_create_task(shell_task, 3, "Shell");
-
     rtos_start();
 
     //TODO: create tasks after start

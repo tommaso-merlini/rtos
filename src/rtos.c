@@ -143,9 +143,6 @@ void init_timer0(void) {
 }
 
 void rtos_init(void) {
-    // NOTE: Timer is NOT started here anymore - it's started in rtos_start()
-    // This prevents preemption before the scheduler is ready
-    
     task_count = 0;
     current_task_index = 0;
     
@@ -164,11 +161,9 @@ void rtos_delete_task(uint8_t id) {
     if (id < MAX_TASKS) {
         rtos_set_task_state(id, TASK_DELETED);
     }
-    uint8_t is_self = (id == current_task_index);
     rtos_exit_critical();
     
-    // Only suicide if deleting ourselves - otherwise just return
-    if (is_self) {
+    if (id == current_task_index) {
         rtos_suicide();
     }
 }
@@ -240,7 +235,8 @@ void rtos_sem_take(Semaphore *sem) {
 }
 
 void rtos_sem_give(Semaphore *sem) {
-    rtos_enter_critical();
+    uint8_t sreg = SREG;
+    cli();
     if (sem->count < sem->max_count) {
         sem->count++;
         for(int i = 0; i < task_count; i++) {
@@ -251,24 +247,7 @@ void rtos_sem_give(Semaphore *sem) {
             }
         }
     }
-    rtos_exit_critical();
-}
-
-// ISR-safe version - does NOT re-enable interrupts
-// Use this when calling from an ISR context
-void rtos_sem_give_from_isr(Semaphore *sem) {
-    // No cli() needed - already in ISR with interrupts disabled
-    if (sem->count < sem->max_count) {
-        sem->count++;
-        for(int i = 0; i < task_count; i++) {
-            if (tasks[i].state == TASK_BLOCKED && tasks[i].blocked_on == sem) {
-                rtos_set_task_state(i, TASK_READY);
-                tasks[i].blocked_on = 0;
-                break;
-            }
-        }
-    }
-    // No sei() - ISR will return and restore interrupt state naturally
+    SREG = sreg;
 }
 
 void rtos_enter_critical(void) {

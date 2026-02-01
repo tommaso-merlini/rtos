@@ -74,7 +74,7 @@ ISR(USART_RX_vect) {
         rx_buffer[rx_index] = '\0';
         line_ready = 1;
         rx_index = 0;
-        rtos_sem_give_from_isr(&shell_sem);  // Use ISR-safe version!
+        rtos_sem_give(&shell_sem);
     } else if (rx_index < RX_BUFFER_SIZE - 1) {
         // Add character to buffer
         rx_buffer[rx_index++] = c;
