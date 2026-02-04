@@ -1,4 +1,4 @@
-[] Priority-Based Scheduling
+[x] Priority-Based Scheduling
     - Currently, rtos_scheduler iterates through tasks in a simple round-robin fashion, completely ignoring the uint8_t priority field already present in the TCB struct.
     - Why: Real-time systems require high-priority tasks (e.g., sensor reading, motor control) to preempt lower-priority ones (e.g., logging, UI).
     - Implementation: Modify rtos_scheduler to scan the tasks array and select the TASK_READY task with the highest priority value instead of just the next one in the list.
@@ -18,7 +18,7 @@
         - Implement rtos_delete_task(uint8_t id) to mark a task as free/unused.
         - Initialize the stack with a "return hook" address (a function that calls rtos_delete_task(self)) so that if a task function returns, it gracefully deletes itself.
 
-[] Stack Overflow Detection
+[x] Stack Overflow Detection
     - There is currently no protection against a task writing beyond its STACK_SIZE (128 bytes).
     - Why: Stack overflows are a common cause of hard-to-debug crashes in embedded systems.
     - Implementation: Fill the stack area with a known pattern (e.g., 0xDEADBEEF) during creation. Check if this pattern is overwritten at the end of the stack during every context switch (rtos_scheduler).
