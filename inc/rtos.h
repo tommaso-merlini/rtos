@@ -33,6 +33,7 @@ void rtos_suicide(void);
 
 typedef struct {
     uint8_t *sp;
+    uint8_t *stack_limit;           // Lowest valid stack address (for overflow detection)
     volatile uint16_t delay_ticks;
     char name[16];
     uint16_t id;

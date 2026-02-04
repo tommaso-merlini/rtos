@@ -4,6 +4,7 @@
 #include <string.h>
 #include <util/delay.h>
 #include "../inc/rtos.h"
+#include "../inc/uart.h"
 
 //TODO: create a unified sleep function where if the sleep is >= 1ms than use the scheduler to sleep, otherwise use _delay_us
 
@@ -201,6 +202,7 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
     }
 
     tasks[slot].sp = stack_ptr;
+    tasks[slot].stack_limit = &task_stacks[slot][0];
     tasks[slot].delay_ticks = 0;
     tasks[slot].id = slot;
     strcpy(tasks[slot].name, name);
@@ -264,6 +266,15 @@ void rtos_scheduler(void) {
     // Skip saving context on first call - there's no valid context yet
     if (scheduler_started) {
         tasks[current_task_index].sp = (uint8_t*)current_sp;
+        
+        // Stack overflow check
+        if (tasks[current_task_index].sp < tasks[current_task_index].stack_limit) {
+            cli();  // Disable interrupts
+            uart_print("PANIC: Stack overflow in task: ");
+            uart_print(tasks[current_task_index].name);
+            uart_print("\r\n");
+            while (1);  // Halt
+        }
     }
     scheduler_started = 1;
     if (ready_priority_group == 0) {

@@ -43,6 +43,7 @@ static void cmd_help(void) {
     uart_print("  ps          - List all tasks\n");
     uart_print("  kill <id>   - Kill a task by ID\n");
     uart_print("  servo <deg> - Set servo angle (0-180)\n");
+    uart_print("  overflow    - Test stack overflow detection\n");
 }
 
 static void cmd_ps(void) {
@@ -96,6 +97,18 @@ static void cmd_kill(const char *arg) {
     uart_print(" killed\n");
 }
 
+// Test task that deliberately overflows its stack (128 bytes)
+static void overflow_test_task(void) {
+    volatile uint8_t big[200];  // Way more than STACK_SIZE
+    for (int i = 0; i < 200; i++) big[i] = (uint8_t)i;
+    while (1) rtos_sleep(1000);
+}
+
+static void cmd_overflow(void) {
+    uart_print("Spawning overflow task...\n");
+    rtos_create_task(overflow_test_task, 5, "OverflowTest");
+}
+
 static void cmd_servo(const char *arg) {
     if (arg == NULL || *arg == '\0') {
         uart_print("Usage: servo <angle 0-180>\n");
@@ -136,6 +149,8 @@ static void shell_execute(const char *cmd) {
         cmd_kill(arg);
     } else if (strncmp(cmd, "servo", cmd_len) == 0 && cmd_len == 5) {
         cmd_servo(arg);
+    } else if (strncmp(cmd, "overflow", cmd_len) == 0 && cmd_len == 8) {
+        cmd_overflow();
     } else {
         uart_print("Unknown command: ");
         for (uint8_t i = 0; i < cmd_len; i++) {
