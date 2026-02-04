@@ -23,7 +23,7 @@
     - Why: Stack overflows are a common cause of hard-to-debug crashes in embedded systems.
     - Implementation: Fill the stack area with a known pattern (e.g., 0xDEADBEEF) during creation. Check if this pattern is overwritten at the end of the stack during every context switch (rtos_scheduler).
 
-[] UART Command Shell (CLI)
+[x] UART Command Shell (CLI)
     -   Concept: Create a task that listens to UART input and parses commands like ps (process status), kill <id>, or servo <angle>.
     -   Why: It turns your device into an interactive computer rather than a static firmware.
 
