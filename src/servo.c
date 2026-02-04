@@ -7,8 +7,8 @@
 // F_CPU = 16MHz, Prescaler = 8 => Tick = 0.5us
 // Period = 20ms / 0.5us = 40000 ticks
 #define SERVO_PWM_TOP       39999
-#define SERVO_MIN_TICKS     2000  // 1ms (0 deg)
-#define SERVO_MAX_TICKS     4000  // 2ms (180 deg)
+#define SERVO_MIN_TICKS     1000  // 0.5ms (0 deg)
+#define SERVO_MAX_TICKS     5000  // 2.5ms (180 deg)
 #define SERVO_RANGE_TICKS   (SERVO_MAX_TICKS - SERVO_MIN_TICKS)
 
 #define ANGLE_TO_TICKS(angle) (SERVO_MIN_TICKS + ((uint32_t)(angle) * SERVO_RANGE_TICKS) / 180)

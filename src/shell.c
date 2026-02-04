@@ -3,6 +3,7 @@
 #include "shell.h"
 #include "uart.h"
 #include "rtos.h"
+#include "servo.h"
 
 #define CMD_BUFFER_SIZE 32
 
@@ -41,6 +42,7 @@ static void cmd_help(void) {
     uart_print("  help        - Show this help\n");
     uart_print("  ps          - List all tasks\n");
     uart_print("  kill <id>   - Kill a task by ID\n");
+    uart_print("  servo <deg> - Set servo angle (0-180)\n");
 }
 
 static void cmd_ps(void) {
@@ -94,6 +96,29 @@ static void cmd_kill(const char *arg) {
     uart_print(" killed\n");
 }
 
+static void cmd_servo(const char *arg) {
+    if (arg == NULL || *arg == '\0') {
+        uart_print("Usage: servo <angle 0-180>\n");
+        return;
+    }
+    
+    uint8_t angle = 0;
+    while (*arg >= '0' && *arg <= '9') {
+        angle = angle * 10 + (*arg - '0');
+        arg++;
+    }
+    
+    if (angle > 180) {
+        uart_print("Angle must be 0-180\n");
+        return;
+    }
+    
+    servo_set(angle);
+    uart_print("Servo set to ");
+    print_uint8(angle);
+    uart_print(" degrees\n");
+}
+
 static void shell_execute(const char *cmd) {
     while (*cmd == ' ') cmd++;
     if (*cmd == '\0') return;
@@ -109,6 +134,8 @@ static void shell_execute(const char *cmd) {
         cmd_ps();
     } else if (strncmp(cmd, "kill", cmd_len) == 0 && cmd_len == 4) {
         cmd_kill(arg);
+    } else if (strncmp(cmd, "servo", cmd_len) == 0 && cmd_len == 5) {
+        cmd_servo(arg);
     } else {
         uart_print("Unknown command: ");
         for (uint8_t i = 0; i < cmd_len; i++) {
