@@ -30,7 +30,7 @@ int main(void) {
     uart_init(57600);
     servo_init();
     _delay_ms(100);
-    uart_print("\\n\\n==== REAL TIME OPERATING SYSTEM: WELCOME!\\n");
+    uart_print("==== REAL TIME OPERATING SYSTEM: WELCOME!\n");
 
     rtos_init();
     rtos_create_task(task_high, 1, "Task_High");
