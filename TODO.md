@@ -34,7 +34,7 @@
     -   Concept: Modify the scheduler to track how many "ticks" each task consumes. Create a task that prints the CPU percentage for every task (like the Linux top command).
     -   Why: Essential for analyzing performance and finding tasks that hog the CPU.
 
-[] Inter-Task Messaging (Mailboxes)
+[x] Inter-Task Messaging (Mailboxes)
     -   Concept: Currently, tasks synchronize via Semaphores (signals). Add "Mailboxes" so tasks can send actual data (integers or struct pointers) to each other safely.
     -   Why: Allows for complex producer-consumer architectures (e.g., a sensor task sending data to a processing task).
 
