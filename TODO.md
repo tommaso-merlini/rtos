@@ -47,3 +47,15 @@
 
 [] Software Watchdog
     -   Concept: A system task that requires other tasks to "check-in" periodically. If a task gets stuck (deadlock or infinite loop), the watchdog detects it and restarts that specific task or the whole system.
+
+[] Scheduler Locking (Low Latency Critical Sections)
+    -   Concept: Implement `rtos_suspend_scheduler` and `rtos_resume_scheduler`.
+    -   Why: Currently `rtos_enter_critical` disables *all* interrupts. This kills system latency. Scheduler locking prevents task switching while keeping hardware interrupts (UART, Timer) active.
+
+[] O(1) Tick Processing (Delta List)
+    -   Concept: Optimize `rtos_tick` to avoid iterating through all tasks.
+    -   Why: Currently the timer ISR loops through `MAX_TASKS` every millisecond. As task count grows, this steals significant CPU time. A Delta List allows O(1) processing of sleeping tasks.
+
+[] Hardware Abstraction Layer (HAL)
+    -   Concept: Move AVR-specific assembly (`SAVE_CONTEXT`, `RESTORE_CONTEXT`) and register usage (`TCCR0A`, `UDR0`) into a separate `port.c` / `port.h`.
+    -   Why: Currently the kernel is hardcoded for ATMega328P. A HAL allows porting to ARM Cortex-M or RISC-V without rewriting the core kernel logic.
