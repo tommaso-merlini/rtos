@@ -236,6 +236,17 @@ void rtos_sem_take(Semaphore *sem) {
     }
 }
 
+uint8_t rtos_sem_try_take(Semaphore *sem) {
+    rtos_enter_critical();
+    if (sem->count > 0) {
+        sem->count--;
+        rtos_exit_critical();
+        return 1;
+    }
+    rtos_exit_critical();
+    return 0;
+}
+
 void rtos_sem_give(Semaphore *sem) {
     uint8_t sreg = SREG;
     cli();
@@ -250,6 +261,59 @@ void rtos_sem_give(Semaphore *sem) {
         }
     }
     SREG = sreg;
+}
+
+void rtos_mailbox_init(Mailbox *mb) {
+    rtos_sem_init(&mb->has_data, 1, 0);
+    rtos_sem_init(&mb->has_space, 1, 1);
+}
+
+void rtos_mailbox_send(Mailbox *mb, void *data, uint8_t size) {
+    rtos_sem_take(&mb->has_space);
+    rtos_enter_critical();
+    for (uint8_t i = 0; i < size && i < 4; i++) {
+        mb->data[i] = ((uint8_t*)data)[i];
+    }
+    rtos_exit_critical();
+    rtos_sem_give(&mb->has_data);
+}
+
+void rtos_mailbox_receive(Mailbox *mb, void *data, uint8_t size) {
+    rtos_sem_take(&mb->has_data);
+    rtos_enter_critical();
+    for (uint8_t i = 0; i < size && i < 4; i++) {
+        ((uint8_t*)data)[i] = mb->data[i];
+    }
+    rtos_exit_critical();
+    rtos_sem_give(&mb->has_space);
+}
+
+uint8_t rtos_mailbox_try_send(Mailbox *mb, void *data, uint8_t size) {
+    if (!rtos_sem_try_take(&mb->has_space)) {
+        return 0;
+    }
+    
+    rtos_enter_critical();
+    for (uint8_t i = 0; i < size && i < 4; i++) {
+        mb->data[i] = ((uint8_t*)data)[i];
+    }
+    rtos_exit_critical();
+    rtos_sem_give(&mb->has_data); 
+    return 1;
+}
+
+uint8_t rtos_mailbox_try_receive(Mailbox *mb, void *data, uint8_t size) {
+    if (!rtos_sem_try_take(&mb->has_data)) {
+        return 0;
+    }
+    
+    rtos_enter_critical();
+    for (uint8_t i = 0; i < size && i < 4; i++) {
+        ((uint8_t*)data)[i] = mb->data[i];
+    }
+    rtos_exit_critical();
+    rtos_sem_give(&mb->has_space);  
+    return 1;
 }
 
 void rtos_enter_critical(void) {

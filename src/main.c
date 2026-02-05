@@ -33,7 +33,6 @@ int main(void) {
     uart_print("==== REAL TIME OPERATING SYSTEM: WELCOME!\n");
 
     rtos_init();
-    rtos_create_task(task_high, 1, "Task_High");
     rtos_create_task(shell_task, 3, "Shell");
     rtos_start();
 

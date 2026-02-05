@@ -25,11 +25,24 @@ typedef struct {
     int8_t max_count;
 } Semaphore;
 
+typedef struct {
+    uint8_t data[4];       // 4-byte payload (max)
+    Semaphore has_data;    // blocks receivers when empty
+    Semaphore has_space;   // blocks senders when full
+} Mailbox;
+
 void rtos_sem_init(Semaphore *sem, int8_t max_count, int8_t initial_count);
 void rtos_sem_take(Semaphore *sem);
+uint8_t rtos_sem_try_take(Semaphore *sem);
 void rtos_sem_give(Semaphore *sem);
 void rtos_yield(void);
 void rtos_suicide(void);
+
+void rtos_mailbox_init(Mailbox *mb);
+void rtos_mailbox_send(Mailbox *mb, void *data, uint8_t size);
+void rtos_mailbox_receive(Mailbox *mb, void *data, uint8_t size);
+uint8_t rtos_mailbox_try_send(Mailbox *mb, void *data, uint8_t size);
+uint8_t rtos_mailbox_try_receive(Mailbox *mb, void *data, uint8_t size);
 
 typedef struct {
     uint8_t *sp;

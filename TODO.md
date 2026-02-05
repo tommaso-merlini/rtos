@@ -27,6 +27,9 @@
     -   Concept: Create a task that listens to UART input and parses commands like ps (process status), kill <id>, or servo <angle>.
     -   Why: It turns your device into an interactive computer rather than a static firmware.
 
+[] Implement a proper rtos_join or sem_take_timeout feature to replace this polling loop
+    - see lines 186-187-188 in shell.c
+
 [] "Top" Command (CPU Usage Monitor)
     -   Concept: Modify the scheduler to track how many "ticks" each task consumes. Create a task that prints the CPU percentage for every task (like the Linux top command).
     -   Why: Essential for analyzing performance and finding tasks that hog the CPU.
