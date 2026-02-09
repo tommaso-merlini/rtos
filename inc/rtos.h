@@ -34,6 +34,7 @@ typedef struct {
 void rtos_sem_init(Semaphore *sem, int8_t max_count, int8_t initial_count);
 void rtos_sem_take(Semaphore *sem);
 uint8_t rtos_sem_try_take(Semaphore *sem);
+uint8_t rtos_sem_take_timeout(Semaphore *sem, uint16_t timeout_ms);
 void rtos_sem_give(Semaphore *sem);
 void rtos_yield(void);
 void rtos_suicide(void);
@@ -50,6 +51,7 @@ typedef struct {
     uint8_t *sp;
     uint8_t *stack_limit;           // Lowest valid stack address (for overflow detection)
     volatile uint16_t delay_ticks;
+    volatile uint16_t timeout_ticks;    // For timed semaphore blocking (0 = no timeout)
     char name[16];
     uint16_t id;
     uint8_t priority;
@@ -59,6 +61,6 @@ typedef struct {
     uint8_t waiting_for_count;      // Number of IDs in the array
 } TCB;
 
-TCB tasks[MAX_TASKS];
+extern TCB tasks[MAX_TASKS];
 
 #endif // RTOS_H

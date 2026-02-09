@@ -27,7 +27,7 @@
     -   Concept: Create a task that listens to UART input and parses commands like ps (process status), kill <id>, or servo <angle>.
     -   Why: It turns your device into an interactive computer rather than a static firmware.
 
-[] Implement a proper rtos_join or sem_take_timeout feature to replace this polling loop
+[x] Implement a proper rtos_join or sem_take_timeout feature to replace this polling loop
     - see lines 186-187-188 in shell.c
 
 [] "Top" Command (CPU Usage Monitor)

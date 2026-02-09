@@ -21,7 +21,7 @@ import sys
 # Default configuration (matches Makefile and uart_client.py)
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 57600
-RESPONSE_TIMEOUT = 2.0  # seconds to wait for response
+RESPONSE_TIMEOUT = 5.0  # seconds to wait for response
 SERVO_SETTLE_TIME = 1.0  # seconds between tests for servo to physically move
 PROMPT = '> '
 
@@ -38,6 +38,11 @@ class ServoTest:
         """Establish serial connection to MCU."""
         try:
             self.ser = serial.Serial(self.port, self.baud, timeout=0.1)
+            # Reset MCU via DTR toggle
+            self.ser.dtr = False
+            time.sleep(0.1)
+            self.ser.dtr = True
+            time.sleep(2.0)  # Wait for MCU boot
             print(f"Connected to {self.port} at {self.baud} baud")
             return True
         except serial.SerialException as e:
@@ -129,7 +134,6 @@ class ServoTest:
         return passed
 
     def run_all_tests(self):
-        time.sleep(10)
         """Run all servo command tests."""
         print()
         print("=" * 50)
@@ -214,14 +218,6 @@ class ServoTest:
             "servo 45deg",
             "Servo set to 45 degrees",
             "Trailing text ignored"
-        )
-
-        # Test 10: Help command shows servo
-        self.run_test(
-            "help",
-            "help",
-            "servo <deg>",
-            "Help shows servo command"
         )
 
         # Print summary

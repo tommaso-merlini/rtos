@@ -39,36 +39,39 @@ static const char* state_to_str(TaskState state) {
 }
 
 static void cmd_help(void) {
-    uart_print("Available commands:\n");
-    uart_print("  help        - Show this help\n");
-    uart_print("  ps          - List all tasks\n");
-    uart_print("  kill <id>   - Kill a task by ID\n");
-    uart_print("  servo <deg> - Set servo angle (0-180)\n");
-    uart_print("  overflow    - Test stack overflow detection\n");
-    uart_print("  mbtest      - Run mailbox tests\n");
+    uart_print_P(PSTR("Available commands:\n"));
+    uart_print_P(PSTR("  help        - Show this help\n"));
+    uart_print_P(PSTR("  ps          - List all tasks\n"));
+    uart_print_P(PSTR("  kill <id>   - Kill a task by ID\n"));
+    uart_print_P(PSTR("  servo <deg> - Set servo angle (0-180)\n"));
+    uart_print_P(PSTR("  overflow    - Test stack overflow detection\n"));
+    uart_print_P(PSTR("  mbtest      - Run mailbox tests\n"));
+    uart_print_P(PSTR("  semtest     - Run semaphore timeout tests\n"));
 }
 
+
 static void cmd_ps(void) {
-    uart_print("ID  PRI  STATE  NAME\n");
-    uart_print("----------------------\n");
+    uart_print_P(PSTR("ID  PRI  STATE  NAME\n"));
+    uart_print_P(PSTR("----------------------\n"));
     
     for (uint8_t i = 0; i < MAX_TASKS; i++) {
         if (tasks[i].state != TASK_EMPTY && tasks[i].state != TASK_DELETED) {
             print_uint8(i);
-            uart_print("   ");
+            uart_print_P(PSTR("   "));
             print_uint8(tasks[i].priority);
-            uart_print("    ");
+            uart_print_P(PSTR("    "));
             uart_print(state_to_str(tasks[i].state));
-            uart_print("  ");
+            uart_print_P(PSTR("  "));
             uart_print(tasks[i].name);
-            uart_print("\n");
+            uart_putc('\n');
         }
     }
 }
 
+
 static void cmd_kill(const char *arg) {
     if (arg == NULL || *arg == '\0') {
-        uart_print("Usage: kill <task_id>\n");
+        uart_print_P(PSTR("Usage: kill <task_id>\n"));
         return;
     }
     
@@ -79,25 +82,26 @@ static void cmd_kill(const char *arg) {
     }
     
     if (id >= MAX_TASKS) {
-        uart_print("Invalid task ID\n");
+        uart_print_P(PSTR("Invalid task ID\n"));
         return;
     }
     
     if (tasks[id].state == TASK_EMPTY || tasks[id].state == TASK_DELETED) {
-        uart_print("Task not running\n");
+        uart_print_P(PSTR("Task not running\n"));
         return;
     }
     
     if (id == 0) {
-        uart_print("Cannot kill idle task\n");
+        uart_print_P(PSTR("Cannot kill idle task\n"));
         return;
     }
     
     rtos_delete_task(id);
-    uart_print("Task ");
+    uart_print_P(PSTR("Task "));
     print_uint8(id);
-    uart_print(" killed\n");
+    uart_print_P(PSTR(" killed\n"));
 }
+
 
 // Test task that deliberately overflows its stack (128 bytes)
 static void overflow_test_task(void) {
@@ -111,8 +115,64 @@ static void overflow_test_task(void) {
 }
 
 static void cmd_overflow(void) {
-    uart_print("Spawning overflow task...\n");
+    uart_print_P(PSTR("Spawning overflow task...\n"));
     rtos_create_task(overflow_test_task, 5, "OverflowTest");
+}
+
+
+// ============== Semaphore Timeout Test Infrastructure ==============
+
+static Semaphore sem_test_sem;
+
+static void sem_giver_task(void) {
+    uart_print_P(PSTR("[Giver] Sleep\n"));
+    rtos_sleep(2000);
+    uart_print_P(PSTR("[Giver] Awake\n"));
+    rtos_sem_give(&sem_test_sem);
+}
+
+static void print_semtest_result(const char *name, uint8_t passed) {
+    uart_print_P(PSTR("[SEMTEST] "));
+    uart_print(name);
+    uart_print_P(PSTR(": "));
+    uart_print(passed ? "PASS" : "FAIL");
+    uart_putc('\n');
+}
+
+// Test 1: Timeout should return 0
+static uint8_t test_sem_timeout(void) {
+    rtos_sem_init(&sem_test_sem, 1, 0);
+    return (rtos_sem_take_timeout(&sem_test_sem, 1000) == 0);
+}
+
+// Test 2: Giver releases before timeout, should return 1
+static uint8_t test_sem_success(void) {
+    rtos_sem_init(&sem_test_sem, 1, 0);
+    rtos_create_task(sem_giver_task, 1, "SemGiver");
+    return (rtos_sem_take_timeout(&sem_test_sem, 5000) == 1);
+}
+
+static void cmd_semtest(void) {
+    uint8_t passed = 0;
+    uint8_t total = 2;
+
+    uart_print_P(PSTR("[SEMTEST] Starting semaphore timeout tests...\n"));
+
+    if (test_sem_timeout()) { passed++; print_semtest_result("timeout", 1); }
+    else { print_semtest_result("timeout", 0); }
+
+    if (test_sem_success()) { passed++; print_semtest_result("success", 1); }
+    else { print_semtest_result("success", 0); }
+
+    uart_print_P(PSTR("[SEMTEST] "));
+    print_uint8(passed);
+    uart_print_P(PSTR("/"));
+    print_uint8(total);
+    uart_print_P(PSTR(" tests passed\n"));
+
+    if (passed == total) {
+        uart_print_P(PSTR("[SEMTEST] All tests passed\n"));
+    }
 }
 
 // ============== Mailbox Test Infrastructure ==============
@@ -121,12 +181,13 @@ static Mailbox test_mb;
 static volatile uint8_t mb_received_sum;
 
 static void print_test_result(const char *name, uint8_t passed) {
-    uart_print("[MBTEST] ");
+    uart_print_P(PSTR("[MBTEST] "));
     uart_print(name);
-    uart_print(": ");
+    uart_print_P(PSTR(": "));
     uart_print(passed ? "PASS" : "FAIL");
-    uart_print("\n");
+    uart_putc('\n');
 }
+
 
 // Test 1: try_receive on empty mailbox should return 0
 static uint8_t test_try_empty(void) {
@@ -191,7 +252,7 @@ static void cmd_mbtest(void) {
     uint8_t passed = 0;
     uint8_t total = 4;
     
-    uart_print("[MBTEST] Starting mailbox tests...\n");
+    uart_print_P(PSTR("[MBTEST] Starting mailbox tests...\n"));
     
     if (test_try_empty()) { passed++; print_test_result("try_empty", 1); }
     else { print_test_result("try_empty", 0); }
@@ -207,21 +268,22 @@ static void cmd_mbtest(void) {
     
     //NOTE: Skipped stress, contention (too heavy for RAM)
     
-    uart_print("[MBTEST] ");
+    uart_print_P(PSTR("[MBTEST] "));
     print_uint8(passed);
-    uart_print("/");
+    uart_print_P(PSTR("/"));
     print_uint8(total);
-    uart_print(" tests passed\n");
+    uart_print_P(PSTR(" tests passed\n"));
     
     if (passed == total) {
-        uart_print("[MBTEST] All tests passed\n");
+        uart_print_P(PSTR("[MBTEST] All tests passed\n"));
     }
 }
 
 
+
 static void cmd_servo(const char *arg) {
     if (arg == NULL || *arg == '\0') {
-        uart_print("Usage: servo <angle 0-180>\n");
+        uart_print_P(PSTR("Usage: servo <angle 0-180>\n"));
         return;
     }
     
@@ -232,14 +294,14 @@ static void cmd_servo(const char *arg) {
     }
     
     if (angle > 180) {
-        uart_print("Angle must be 0-180\n");
+        uart_print_P(PSTR("Angle must be 0-180\n"));
         return;
     }
     
     servo_set(angle);
-    uart_print("Servo set to ");
+    uart_print_P(PSTR("Servo set to "));
     print_uint8(angle);
-    uart_print(" degrees\n");
+    uart_print_P(PSTR(" degrees\n"));
 }
 
 static void shell_execute(const char *cmd) {
@@ -263,14 +325,17 @@ static void shell_execute(const char *cmd) {
         cmd_overflow();
     } else if (strncmp(cmd, "mbtest", cmd_len) == 0 && cmd_len == 6) {
         cmd_mbtest();
+    } else if (strncmp(cmd, "semtest", cmd_len) == 0 && cmd_len == 7) {
+        cmd_semtest();
     } else {
-        uart_print("Unknown command: ");
+        uart_print_P(PSTR("Unknown command: "));
         for (uint8_t i = 0; i < cmd_len; i++) {
             uart_putc(cmd[i]);
         }
-        uart_print("\nType 'help' for available commands\n");
+        uart_print_P(PSTR("\nType 'help' for available commands\n"));
     }
 }
+
 
 void shell_task(void) {
     char cmd_buffer[CMD_BUFFER_SIZE];

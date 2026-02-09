@@ -206,6 +206,8 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
     uint16_t address = (uint16_t)task_func;
     *stack_ptr-- = (uint8_t)(address & 0x00FF);
     *stack_ptr-- = (uint8_t)((address >> 8) & 0x00FF);
+
+
     *stack_ptr-- = 0x00; //R0
     *stack_ptr-- = 0x80; //SREG: Global Interrupt Enable flag set
     *stack_ptr-- = 0x00; //R1
@@ -216,6 +218,7 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
     tasks[slot].sp = stack_ptr;
     tasks[slot].stack_limit = &task_stacks[slot][0];
     tasks[slot].delay_ticks = 0;
+    tasks[slot].timeout_ticks = 0;
     tasks[slot].id = slot;
     strcpy(tasks[slot].name, name);
     tasks[slot].blocked_on = NULL;
@@ -261,6 +264,53 @@ uint8_t rtos_sem_try_take(Semaphore *sem) {
     return 0;
 }
 
+uint8_t rtos_sem_take_timeout(Semaphore *sem, uint16_t timeout_ms) {
+    if (timeout_ms == 0) {
+        return rtos_sem_try_take(sem);
+    }
+
+    rtos_enter_critical();
+
+    // Check if available immediately
+    if (sem->count > 0) {
+        sem->count--;
+        rtos_exit_critical();
+        return 1;
+    }
+
+    // Not available. Prepare to wait.
+    tasks[current_task_index].timeout_ticks = timeout_ms / MS_PER_TICK;
+
+    while(1) {
+        // Invariant: We are in critical section
+
+        // Check if available
+        if (sem->count > 0) {
+            sem->count--;
+            tasks[current_task_index].timeout_ticks = 0;
+            rtos_exit_critical();
+            return 1;
+        }
+
+        // Check if timed out
+        if (tasks[current_task_index].timeout_ticks == 0) {
+            tasks[current_task_index].blocked_on = NULL;
+            rtos_exit_critical();
+            return 0;
+        }
+
+        // Block
+        tasks[current_task_index].blocked_on = sem;
+        rtos_set_task_state(current_task_index, TASK_BLOCKED);
+        rtos_exit_critical();
+
+        rtos_yield();
+
+        // Woke up
+        rtos_enter_critical();
+    }
+}
+
 void rtos_sem_give(Semaphore *sem) {
     uint8_t sreg = SREG;
     cli();
@@ -269,7 +319,8 @@ void rtos_sem_give(Semaphore *sem) {
         for(int i = 0; i < task_count; i++) {
             if (tasks[i].state == TASK_BLOCKED && tasks[i].blocked_on == sem) {
                 rtos_set_task_state(i, TASK_READY);
-                tasks[i].blocked_on = 0;
+                tasks[i].timeout_ticks = 0;
+                tasks[i].blocked_on = NULL;
                 break;
             }
         }
@@ -452,6 +503,13 @@ void rtos_tick(void) {
                 tasks[i].delay_ticks--;
             }
             if (tasks[i].delay_ticks == 0) {
+                rtos_set_task_state(i, TASK_READY);
+            }
+        } else if (tasks[i].state == TASK_BLOCKED && tasks[i].timeout_ticks > 0) {
+            tasks[i].timeout_ticks--;
+            if (tasks[i].timeout_ticks == 0) {
+                // Timeout expired
+                tasks[i].blocked_on = NULL; // Clear the semaphore we were waiting for
                 rtos_set_task_state(i, TASK_READY);
             }
         }
