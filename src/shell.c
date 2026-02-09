@@ -103,10 +103,10 @@ static void cmd_kill(const char *arg) {
 }
 
 
-// Test task that deliberately overflows its stack (128 bytes)
+// Test task that deliberately overflows its stack (STACK_SIZE = 384)
 static void overflow_test_task(void) {
-    volatile uint8_t big[200];  // Way more than STACK_SIZE
-    for (int i = 0; i < 200; i++) {     
+    volatile uint8_t big[450];  // More than STACK_SIZE (384)
+    for (int i = 0; i < 450; i++) {     
         big[i] = (uint8_t)i;
     }            
     while (1) {
