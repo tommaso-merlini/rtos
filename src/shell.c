@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include "shell.h"
@@ -117,7 +118,6 @@ static void cmd_overflow(void) {
 // ============== Mailbox Test Infrastructure ==============
 
 static Mailbox test_mb;
-static volatile uint8_t mb_test_done;
 static volatile uint8_t mb_received_sum;
 
 static void print_test_result(const char *name, uint8_t passed) {
@@ -171,24 +171,20 @@ static void blocking_consumer_task(void) {
         rtos_mailbox_receive(&test_mb, &val, 1);
         mb_received_sum += val;
     }
-    mb_test_done = 1;
 }
 
 // Test 4: Blocking producer/consumer
 static uint8_t test_blocking(void) {
     rtos_mailbox_init(&test_mb);
-    mb_test_done = 0;
     mb_received_sum = 0;
     
-    rtos_create_task(blocking_consumer_task, 4, "MBConsumer");
-    rtos_create_task(blocking_producer_task, 4, "MBProducer");
+    int8_t task1 = rtos_create_task(blocking_consumer_task, 4, "MBConsumer");
+    int8_t task2 = rtos_create_task(blocking_producer_task, 4, "MBProducer");
+
+    int8_t ids[] = {task1, task2};
+    rtos_wait_tasks(2, ids);
     
-    //TODO: this should not be polled, implement timed semaphores or tasks join
-    for (uint8_t i = 0; i < 200 && !mb_test_done; i++) {
-        rtos_sleep(10);
-    }
-    
-    return (mb_test_done && mb_received_sum == 15);
+    return (mb_received_sum == 15);
 }
 
 static void cmd_mbtest(void) {

@@ -44,6 +44,8 @@ void rtos_mailbox_receive(Mailbox *mb, void *data, uint8_t size);
 uint8_t rtos_mailbox_try_send(Mailbox *mb, void *data, uint8_t size);
 uint8_t rtos_mailbox_try_receive(Mailbox *mb, void *data, uint8_t size);
 
+void rtos_wait_tasks(uint8_t count, int8_t *task_ids);
+
 typedef struct {
     uint8_t *sp;
     uint8_t *stack_limit;           // Lowest valid stack address (for overflow detection)
@@ -53,6 +55,8 @@ typedef struct {
     uint8_t priority;
     TaskState state;
     Semaphore *blocked_on;
+    int8_t *waiting_for_ids;        // Pointer to array of task IDs we're waiting on
+    uint8_t waiting_for_count;      // Number of IDs in the array
 } TCB;
 
 TCB tasks[MAX_TASKS];

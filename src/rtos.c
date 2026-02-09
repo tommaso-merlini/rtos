@@ -161,6 +161,18 @@ void rtos_delete_task(uint8_t id) {
     rtos_enter_critical();
     if (id < MAX_TASKS) {
         rtos_set_task_state(id, TASK_DELETED);
+        
+        // Wake any tasks waiting for this task to exit
+        for (uint8_t i = 0; i < task_count; i++) {
+            if (tasks[i].state == TASK_BLOCKED && tasks[i].waiting_for_ids != NULL) {
+                for (uint8_t j = 0; j < tasks[i].waiting_for_count; j++) {
+                    if (tasks[i].waiting_for_ids[j] == id) {
+                        rtos_set_task_state(i, TASK_READY);
+                        break;
+                    }
+                }
+            }
+        }
     }
     rtos_exit_critical();
     
@@ -208,6 +220,8 @@ int8_t rtos_create_task(void (*task_func)(void), uint8_t priority, char name[16]
     strcpy(tasks[slot].name, name);
     tasks[slot].blocked_on = NULL;
     tasks[slot].priority = priority;
+    tasks[slot].waiting_for_ids = NULL;
+    tasks[slot].waiting_for_count = 0;
     
     rtos_enter_critical();
     rtos_set_task_state(slot, TASK_READY);
@@ -314,6 +328,47 @@ uint8_t rtos_mailbox_try_receive(Mailbox *mb, void *data, uint8_t size) {
     rtos_exit_critical();
     rtos_sem_give(&mb->has_space);  
     return 1;
+}
+
+/**
+ * NOTE: The task_ids pointer is stored in the TCB and accessed by rtos_delete_task()
+ * when waking waiters. This is safe because the caller blocks synchronously, keeping
+ * its stack frame (and the array) alive until this function returns.
+ * 
+ * If a future API (e.g., rtos_cancel_wait()) is added that can unblock a waiting task
+ * externally, it MUST clear waiting_for_ids before the caller returns, otherwise
+ * rtos_delete_task() may dereference a stale pointer.
+ */
+void rtos_wait_tasks(uint8_t count, int8_t *task_ids) {
+    while (1) {
+        rtos_enter_critical();
+        
+        // Check if all target tasks are done
+        uint8_t all_done = 1;
+        for (uint8_t i = 0; i < count; i++) {
+            int8_t tid = task_ids[i];
+            if (tid >= 0 && tid < MAX_TASKS &&
+                tasks[tid].state != TASK_EMPTY &&
+                tasks[tid].state != TASK_DELETED) {
+                all_done = 0;
+                break;
+            }
+        }
+        
+        if (all_done) {
+            tasks[current_task_index].waiting_for_ids = NULL;
+            tasks[current_task_index].waiting_for_count = 0;
+            rtos_exit_critical();
+            return;
+        }
+        
+        // Block until one of the target tasks exits
+        tasks[current_task_index].waiting_for_ids = task_ids;
+        tasks[current_task_index].waiting_for_count = count;
+        rtos_set_task_state(current_task_index, TASK_BLOCKED);
+        rtos_exit_critical();
+        rtos_yield();
+    }
 }
 
 void rtos_enter_critical(void) {
