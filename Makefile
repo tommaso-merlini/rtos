@@ -19,7 +19,7 @@ SIZE = avr-size
 
 # Flags
 CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU) -I$(INCDIR)
-CFLAGS += -Os -Wall -Wextra -Wstrict-prototypes
+CFLAGS += -Os -Wall -Wextra -Wstrict-prototypes -Wshadow -Wdiscarded-qualifiers
 CFLAGS += -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -ffunction-sections -fdata-sections
 CFLAGS += -std=gnu99
